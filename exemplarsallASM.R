@@ -2,16 +2,22 @@ if (!require(effects)) {install.packages("effects"); require(effects)}
 if (!require(emmeans)) {install.packages("emmeans"); require(emmeans)}
 if (!require(lme4)) {install.packages("lme4"); require(lme4)}
 if (!require(lmerTest)) {install.packages("lmerTest"); require(lmerTest)}
+if (!require(tidyverse)) {install.packages("tidyverse"); require(tidyverse)}
 
-setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
+Yessetwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
-study1 <- read.delim("myData2.txt")
-study2 <- read.delim("myData3.txt")
-study3 <- read.delim("myData4.txt")
-study4 <- read.delim("myData5.txt")
-study5 <- read.delim("myData6.txt")
-study6 <- read.delim("mydatarep.txt")
-study7 <- read.delim("myData7.txt")
+study1 <- read.delim("exemplarsall/myData1.txt")
+study2 <- read.delim("exemplarsall/myData2.txt")
+study3 <- read.delim("exemplarsall/myData3.txt")
+study4 <- read.delim("exemplarsall/myData4.txt")
+study5 <- read.delim("exemplarsall/myData5.txt")
+study6 <- read.delim("exemplarsall/myData6.txt")
+study7 <- read.delim("exemplarsall/myData7.txt")
+#study8 <- read.delim("exemplarsall/myData8.txt")
+#study9 <- read.delim("exemplarsall/myData9.txt")
+#study10 <- read.delim("exemplarsall/myData10.txt")
+#study11 <- read.delim("exemplarsall/myData11.txt")
+
 
 myColNames <- Reduce(intersect, list(colnames(study1), colnames(study2), colnames(study3),
                                      colnames(study4), colnames(study5), colnames(study6),
@@ -20,6 +26,10 @@ myColNames <- Reduce(intersect, list(colnames(study1), colnames(study2), colname
 myColNames2 <- unique(c(colnames(study1), colnames(study2), colnames(study3),
                         colnames(study4), colnames(study5), colnames(study6),
                         colnames(study7)))
+
+study1[, myColNames2[!(myColNames2 %in% colnames(study1))]] <- NA
+study1 <- study1[, myColNames2]
+study1$study <- "Study 1"
 
 study2[, myColNames2[!(myColNames2 %in% colnames(study2))]] <- NA
 study2 <- study2[, myColNames2]
@@ -45,11 +55,7 @@ study7[, myColNames2[!(myColNames2 %in% colnames(study7))]] <- NA
 study7 <- study7[, myColNames2]
 study7$study <- "Study 7"
 
-studyrep[, myColNames2[!(myColNames2 %in% colnames(studyrep))]] <- NA
-studyrep <- studyrep[, myColNames2]
-studyrep$study <- "Study Rep"
-
-myDataAll <- rbind(study2, study3, study4, study5, study6, study7, studyrep)
+myDataAll <- rbind(study1, study2, study3, study4, study5, study6, study7)
 
 head(myDataAll)
 table(myDataAll$citizenship)
