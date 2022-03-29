@@ -9,7 +9,7 @@ Yessetwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 study1 <- read.delim("exemplarsall/myData1.txt")
 study2 <- read.delim("exemplarsall/myData2.txt")
 study3 <- read.delim("exemplarsall/myData3.txt")
-study4 <- read.delim("exemplarsall/myData4.txt")
+study4 <- read.delim("exemplarsall/myData4.txt") #all White sample
 study5 <- read.delim("exemplarsall/myData5.txt")
 study6 <- read.delim("exemplarsall/myData6.txt")
 study7 <- read.delim("exemplarsall/myData7.txt")
@@ -18,6 +18,7 @@ study7 <- read.delim("exemplarsall/myData7.txt")
 #study10 <- read.delim("exemplarsall/myData10.txt")
 #study11 <- read.delim("exemplarsall/myData11.txt")
 
+study4 <- study4 %>% mutate(raceethnic = recode(raceethnic, "white" = "White"))
 
 myColNames <- Reduce(intersect, list(colnames(study1), colnames(study2), colnames(study3),
                                      colnames(study4), colnames(study5), colnames(study6),
@@ -56,6 +57,22 @@ study7 <- study7[, myColNames2]
 study7$study <- "Study 7"
 
 myDataAll <- rbind(study1, study2, study3, study4, study5, study6, study7)
+
+
+myDataAll %>% 
+  group_by(study) %>% 
+  summarise(number = table(learnCond), n = n())
+
+
+table(study1$raceethnic)
+table(study2$raceethnic)
+table(study3$raceethnic)
+table(study4$raceethnic)
+table(study5$raceethnic)
+table(study6$raceethnic)
+table(study7$raceethnic)
+
+
 
 head(myDataAll)
 table(myDataAll$citizenship)
