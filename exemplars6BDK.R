@@ -194,7 +194,7 @@ table(sessionsDem$citizenship)
 includingDemogr <- merge(x = meanRTandSD, y = sessionsDem, 
                           by = "session_id", all.x = TRUE)
 includingDemogrAll <- includingDemogr
-# includingDemogr <- includingDemogr[includingDemogr$citizenship == "us", ]
+includingDemogr <- includingDemogr[includingDemogr$citizenship == "us", ]
 
 # Reading in and cleaning explicit file -----------------------------------
 
