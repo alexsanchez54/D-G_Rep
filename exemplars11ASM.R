@@ -6,7 +6,7 @@ if (!require(pastecs)) {install.packages("pastecs"); require(pastecs)}
 if (!require(corrplot)) {install.packages("corrplot"); require(corrplot)}
 if (!require(bayesplot)) {install.packages("bayesplot"); require(bayesplot)}
 if (!require(rstanarm)) {install.packages("rstanarm"); require(rstanarm)}
-
+if (!require(tidyverse)) {install.packages("tidyverse"); require(tidyverse)}
 
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
@@ -197,13 +197,13 @@ includingDemogrAll <- includingDemogr
 includingDemogr <- includingDemogr[includingDemogr$citizenship == "us", ]
 
 #Alex code
-includingDemogr <- includingDemogr[includingDemogr$raceethnic == "White", ]
+#includingDemogr <- includingDemogr[includingDemogr$raceethnic == "White", ]
 
 # Reading in and cleaning explicit file -----------------------------------
 
 expLong <- read.delim("explicit.txt", na.strings = "-999")
 
-expLong[expLong$questionnaire_name %in% c("control_attention", "exp_attention"), "question_name"] <- gsub("exp_check6", "att_check", expLong[expLong$questionnaire_name %in% c("control_attention", "exp_attention"), "question_name"])
+expLong[expLong$questionnaire_name %in% c("control_attention", "exp_attention"), "question_name"] <- gsub("exp_check6", expLong[expLong$questionnaire_name %in% c("control_attention", "exp_attention"), "question_name"])
 
 exp <- reshape(expLong, timevar = "question_name", idvar = "session_id", direction = "wide",
                drop = c("task_number", "question_number", "questionnaire_name", "attempt",
@@ -219,7 +219,7 @@ contigencyItems <- paste0("exp_check", 1:6)
 explicitItems <- c("thermoBlack", "thermoWhite",
                    paste0(semanticDiffItems, "Black"), paste0(semanticDiffItems, "White"))
 
-exp <- exp[, c("session_id", "d", "block3Cond", explicitItems, "att_check", contigencyItems)]
+exp <- exp[, c("session_id", "d", "block3Cond", explicitItems, contigencyItems)]
 
 includingExplicit <- merge(includingDemogr, exp,
                            by = "session_id", all.x = TRUE)
@@ -402,6 +402,12 @@ tapply(myData$D_Score, myData$learnCond, mean)
 tapply(myData$D_Score, myData$learnCond, cohensD)
 
 cohensD(myData$D_Score ~ myData$learnCond)
+
+tapply(myData[myData$raceethn == "White", ]$D_Score, myData[myData$raceethn == "White", ]$learnCond, mean)
+tapply(myData[myData$raceethn == "White", ]$D_Score, myData[myData$raceethn == "White", ]$learnCond, cohensD)
+
+cohensD(myData[myData$raceethn == "White", ]$D_Score ~ myData[myData$raceethn == "White", ]$learnCond)
+
 
 # Explicit attitudes ------------------------------------------------------
 
@@ -822,13 +828,52 @@ summary(aov(myData$D_Score ~ myData$exp_check6))
 cohensD(myData[myData$learnCond == "Control", ]$D_Score,
         myData[myData$learnCond == "Experimental" & myData$exp_check6 == "2", ]$D_Score)
 
+#Alex code
+
+myDataControl <- myData[myData$learnCond == "Control", ] %>% 
+  mutate(pass456 = "Control")
+
+myDataExpNoAnswer <- myData[myData$learnCond == "Experimental" & is.na(myData$exp_check6), ] %>% 
+  mutate(pass456 = "noAnswer")
+
+myDataExpPass <- myData[myData$learnCond == "Experimental" &
+                          (!is.na(myData$exp_check6)) &
+                          ((myData$exp_check4 == "1" | myData$exp_check5 == "2") & myData$exp_check6 == "2"), ] %>% 
+  mutate(pass456 = "pass")
+
+myDataExpFail <- myData[myData$learnCond == "Experimental" &
+                          (!is.na(myData$exp_check6) &
+                             !((myData$exp_check4 == "1" | myData$exp_check5 == "2") & myData$exp_check6 == "2")), ] %>% 
+  mutate(pass456 = "fail")
+
+table(myDataExpFail$learnCond, useNA = "always")
+table(myDataExpPass$learnCond, useNA = "always")
+table(myDataExpNoAnswer$learnCond, useNA = "always")
+table(myDataControl$learnCond, useNA = "always")
+
+table(myDataExpFail$pass456, useNA = "always")
+table(myDataExpPass$pass456, useNA = "always")
+table(myDataExpNoAnswer$pass456, useNA = "always")
+table(myDataControl$pass456, useNA = "always")
+
+myData <- rbind(myDataExpFail, myDataExpPass, myDataExpNoAnswer, myDataControl)
+
+###
+
+table(myData$pass456, useNA = "always")
+
+table(myData[myData$pass456 == "pass", ]$learnCond, useNA = "always")
+table(myData[myData$pass456 == "fail", ]$learnCond, useNA = "always")
+
+
+
 
 # Attention check ---------------------------------------------------------
 
 table(myData$att_check)
 table(myData$learnCond, myData$att_check)
 
-tapply(myData[myData$learnCond == "Experimental", ]$D_Score,
+tapply(myData[myData$<- == "Experimental", ]$D_Score,
        myData[myData$learnCond == "Experimental", ]$att_check, mean)
 
 tapply(myData[myData$learnCond == "Experimental", ]$D_Score,
