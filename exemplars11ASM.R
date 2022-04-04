@@ -828,6 +828,8 @@ summary(aov(myData$D_Score ~ myData$exp_check6))
 cohensD(myData[myData$learnCond == "Control", ]$D_Score,
         myData[myData$learnCond == "Experimental" & myData$exp_check6 == "2", ]$D_Score)
 
+summary(aov(myData$D_Score ~ myData$learnCond + myData$raceethnic + myData$learnCond*myData$raceethnic))
+
 ## Contingency instructions
 #Alex code
 
