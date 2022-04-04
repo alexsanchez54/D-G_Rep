@@ -6,7 +6,7 @@ if (!require(pastecs)) {install.packages("pastecs"); require(pastecs)}
 if (!require(corrplot)) {install.packages("corrplot"); require(corrplot)}
 if (!require(bayesplot)) {install.packages("bayesplot"); require(bayesplot)}
 if (!require(rstanarm)) {install.packages("rstanarm"); require(rstanarm)}
-if (!require(tidyverse)) {install.packages("tidyverse"); require(tidyverse)}
+
 
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
@@ -196,14 +196,11 @@ includingDemogr <- merge(x = meanRTandSD, y = sessionsDem,
 includingDemogrAll <- includingDemogr
 includingDemogr <- includingDemogr[includingDemogr$citizenship == "us", ]
 
-#Alex code
-#includingDemogr <- includingDemogr[includingDemogr$raceethnic == "White", ]
-
 # Reading in and cleaning explicit file -----------------------------------
 
 expLong <- read.delim("explicit.txt", na.strings = "-999")
 
-expLong[expLong$questionnaire_name %in% c("control_attention", "exp_attention"), "question_name"] <- gsub("exp_check6", expLong[expLong$questionnaire_name %in% c("control_attention", "exp_attention"), "question_name"])
+expLong[expLong$questionnaire_name %in% c("control_attention", "exp_attention"), "question_name"] <- gsub("exp_check6", "att_check", expLong[expLong$questionnaire_name %in% c("control_attention", "exp_attention"), "question_name"])
 
 exp <- reshape(expLong, timevar = "question_name", idvar = "session_id", direction = "wide",
                drop = c("task_number", "question_number", "questionnaire_name", "attempt",
@@ -269,18 +266,22 @@ sessionTasks <- read.delim("sessionTasks.txt")
 myData$learnCond <- NA
 
 for (i in 1:nrow(myData)) {
-  if ("control_learn" %in% sessionTasks[sessionTasks$session_id == myData$session_id[i], "task_id"]) {
+  if ("control_intro" %in% sessionTasks[sessionTasks$session_id == myData$session_id[i], "task_id"]) {
     myData$learnCond[i] <- 1
   }
-  else if ("exp_learn" %in% sessionTasks[sessionTasks$session_id == myData$session_id[i], "task_id"]) {
+  else if ("exp_intro_summ" %in% sessionTasks[sessionTasks$session_id == myData$session_id[i], "task_id"]) {
     myData$learnCond[i] <- 2
+  }  
+  else if ("exp_intro_disclose_summ" %in% sessionTasks[sessionTasks$session_id == myData$session_id[i], "task_id"]) {
+    myData$learnCond[i] <- 3
   }  
   print(i)
 }
 
 table(myData$learnCond)
 
-myData$learnCond <- factor(myData$learnCond, levels = c(1, 2), labels = c("Control", "Experimental"))
+myData$learnCond <- factor(myData$learnCond, levels = 1:3, labels = c("Control", "Original instructions",
+                                                                      "Contingency instructions"))
 
 myData <- myData[!is.na(myData$learnCond), ]
 
@@ -308,6 +309,16 @@ plot(myData$D_Score, myData$d)
 cor(myData$D_Score, myData$d, use = "pairwise.complete.obs")
 
 head(myData)
+
+### Alex code
+
+myDataOG <- myData[myData$learnCond == "Original instructions" | myData$learnCond == "Control", ] %>% droplevels()
+table(myDataOG$learnCond)
+
+myDatacont <- myData[myData$learnCond == "Contingency instructions" | myData$learnCond == "Control", ] %>% droplevels()
+table(myDatacont$learnCond)
+
+### end Alex code
 
 pdf("D score distribution.pdf", width = 10)
 hist(myData$D_Score, main = "Distribution of D scores",
@@ -370,44 +381,212 @@ t.test(myData[myData$order == "Incongruent first", ]$D_Score)
 ttestBF(myData[myData$order == "Incongruent first", ]$D_Score)
 cohensD(as.numeric(myData[myData$order == "Incongruent first", ]$D_Score))
 
-lmCond <- lm(D_Score ~ learnCond, data = myData)
+lmCond <- lm(D_Score ~ learnCond, data = myDatacont)
 summary(lmCond)
 
-1/lmBF(D_Score ~ learnCond, data = myData)
+lmBF(D_Score ~ learnCond, data = myData)
 
-lmCond2 <- lm(D_Score ~ learnCond, data = myData[myData$raceethn == "White", ])
+lmBF(D_Score ~ learnCond, data = myData[!(myData$learnCond == "Contingency instructions"), ])
+lmBF(D_Score ~ learnCond, data = myData[!(myData$learnCond == "Original instructions"), ])
+
+lmCond2 <- lm(D_Score ~ learnCond, data = myDatacont[myDatacont$raceethn == "White", ])
 summary(lmCond2)
 
 1/lmBF(D_Score ~ learnCond, data = myData[!is.na(myData$raceethn) & myData$raceethn == "White", ])
 
-lmCond3 <- lm(D_Score ~ learnCond, data = myData[myData$citizenship == "us", ])
-summary(lmCond3)
-
-1/lmBF(D_Score ~ learnCond, data = myData[!is.na(myData$raceethn) & myData$raceethn == "White", ])
+# lmCond3 <- lm(D_Score ~ learnCond, data = myData[myData$citizenship == "us", ])
+# summary(lmCond3)
+# 
+# 1/lmBF(D_Score ~ learnCond, data = myData[!is.na(myData$raceethn) & myData$raceethn == "White", ])
 
 pdf("IAT condition effect.pdf", width = 10)
 beanplot(myData$D_Score[myData$learnCond == "Control"],
-         myData$D_Score[myData$learnCond == "Experimental"],
+         myData$D_Score[myData$learnCond == "Original instructions"],
+         myData$D_Score[myData$learnCond == "Contingency instructions"],
          what = c(1, 1, 1, 1),
          col = rainbow(4, alpha = 0.20)[1],
          main = "Distribution of IAT D scores",
          axes = FALSE, bw = 0.2, xlab = "",
          ylim = c(-2, 2))
-axis(1, at = 1:2, levels(myData$learnCond))
+axis(1, at = 1:3, levels(myData$learnCond))
 axis(2)
 mtext("Race implicit attitude")
 dev.off()
 
 tapply(myData$D_Score, myData$learnCond, mean)
 tapply(myData$D_Score, myData$learnCond, cohensD)
-
 cohensD(myData$D_Score ~ myData$learnCond)
 
-tapply(myData[myData$raceethn == "White", ]$D_Score, myData[myData$raceethn == "White", ]$learnCond, mean)
-tapply(myData[myData$raceethn == "White", ]$D_Score, myData[myData$raceethn == "White", ]$learnCond, cohensD)
 
-cohensD(myData[myData$raceethn == "White", ]$D_Score ~ myData[myData$raceethn == "White", ]$learnCond)
+tapply(myData$D_Score[myData$raceethnic == "White"], myData$learnCond[myData$raceethnic == "White"], mean)
+tapply(myData$D_Score[myData$raceethnic == "White"], myData$learnCond[myData$raceethnic == "White"], cohensD)
+cohensD(myDataPass[myDataPass$raceethn == "White", ]$D_Score ~ myDataPass[myDataPass$raceethn == "White", ]$learnCond)
 
+
+tapply(myDataOG$D_Score, myDataOG$learnCond, mean)
+tapply(myDataOG$D_Score, myDataOG$learnCond, cohensD)
+cohensD(myDataOG$D_Score ~ myDataOG$learnCond)
+
+
+tapply(myDataOG$D_Score[myDataOG$raceethnic == "White"], myDataOG$learnCond[myDataOG$raceethnic == "White"], mean)
+tapply(myDataOG$D_Score[myDataOG$raceethnic == "White"], myDataOG$learnCond[myDataOG$raceethnic == "White"], cohensD)
+cohensD(myDataOG[myDataOG$raceethn == "White", ]$D_Score ~ myDataOG[myDataOG$raceethn == "White", ]$learnCond)
+
+
+tapply(myDatacont$D_Score, myDatacont$learnCond, mean)
+tapply(myDatacont$D_Score, myDatacont$learnCond, cohensD)
+cohensD(myDatacont$D_Score ~ myDatacont$learnCond)
+
+
+tapply(myDatacont$D_Score[myDatacont$raceethnic == "White"], myDatacont$learnCond[myDatacont$raceethnic == "White"], mean)
+tapply(myDatacont$D_Score[myDatacont$raceethnic == "White"], myDatacont$learnCond[myDatacont$raceethnic == "White"], cohensD)
+cohensD(myDatacont[myDatacont$raceethn == "White", ]$D_Score ~ myDatacont[myDatacont$raceethn == "White", ]$learnCond)
+
+## Contingency check
+#Alex code
+
+myDataOG$learnCond <- myDataOG$learnCond %>% fct_recode("Experimental" = "Original instructions")
+table(myDataOG$learnCond, useNA = "always")
+
+myDatacont$learnCond <- myDatacont$learnCond %>% fct_recode("Experimental" = "Contingency instructions")
+table(myDataOG$learnCond, useNA = "always")
+
+###OG Data
+
+myDataControl <- myDataOG[myDataOG$learnCond == "Control", ] %>% 
+  mutate(pass456 = "control")
+
+myDataExpNoAnswer <- myDataOG[myDataOG$learnCond == "Experimental" & is.na(myDataOG$exp_check6), ] %>% 
+  mutate(pass456 = "noAnswer")
+
+myDataExpPass <- myDataOG[myDataOG$learnCond == "Experimental" &
+                          (!is.na(myDataOG$exp_check6)) &
+                          ((myDataOG$exp_check4 == "1" | myDataOG$exp_check5 == "2") & myDataOG$exp_check6 == "2"), ] %>% 
+  mutate(pass456 = "pass")
+
+myDataExpFail <- myDataOG[myDataOG$learnCond == "Experimental" &
+                          (!is.na(myDataOG$exp_check6) &
+                             !((myDataOG$exp_check4 == "1" | myDataOG$exp_check5 == "2") & myDataOG$exp_check6 == "2")), ] %>% 
+  mutate(pass456 = "fail")
+
+myDataOG <- rbind(myDataExpFail, myDataExpPass, myDataExpNoAnswer, myDataControl)
+
+#View(myData[myData$pass456 == "pass", ])
+
+table(myDataOG$pass456, useNA = "always")
+table(myDataOG[myDataOG$raceethnic == "White", ]$pass456, useNA = "always")
+
+###
+
+myDataOGPass <- myDataOG[myDataOG$pass456 == "pass" | myDataOG$pass456 == "control", ]
+table(myDataOGPass$learnCond, useNA = "always")
+table(myDataOGPass[myDataOGPass$raceethnic == "White", ]$learnCond, useNA = "always")
+
+lmCond <- lm(D_Score ~ learnCond, data = myDataOGPass)
+summary(lmCond)
+
+1/lmBF(D_Score ~ learnCond, data = myDataOGPass)
+
+lmCond2 <- lm(D_Score ~ learnCond, data = myDataOGPass[myDataOGPass$raceethn == "White", ])
+summary(lmCond2)
+
+1/lmBF(D_Score ~ learnCond, data = myDataOGPass[!is.na(myDataOGPass$raceethn) & myDataOGPass$raceethn == "White", ])
+
+lmCond3 <- lm(D_Score ~ learnCond, data = myDataOGPass[myDataOGPass$citizenship == "us", ])
+summary(lmCond3)
+
+1/lmBF(D_Score ~ learnCond, data = myDataOGPass[!is.na(myDataOGPass$raceethn) & myDataOGPass$raceethn == "White", ])
+
+pdf("IAT condition effect.pdf", width = 10)
+beanplot(myDataOGPass$D_Score[myDataOGPass$learnCond == "Control"],
+         myDataOGPass$D_Score[myDataOGPass$learnCond == "Experimental"],
+         what = c(1, 1, 1, 1),
+         col = rainbow(4, alpha = 0.20)[1],
+         main = "Distribution of IAT D scores",
+         axes = FALSE, bw = 0.2, xlab = "",
+         ylim = c(-2, 2))
+axis(1, at = 1:2, levels(myDataOGPass$learnCond))
+axis(2)
+mtext("Race implicit attitude")
+dev.off()
+
+tapply(myDataOGPass$D_Score, myDataOGPass$learnCond, mean)
+tapply(myDataOGPass$D_Score, myDataOGPass$learnCond, cohensD)
+
+cohensD(myDataOGPass$D_Score ~ myDataOGPass$learnCond)
+
+tapply(myDataOGPass[myDataOGPass$raceethn == "White", ]$D_Score, myDataOGPass[myDataOGPass$raceethn == "White", ]$learnCond, mean)
+tapply(myDataOGPass[myDataOGPass$raceethn == "White", ]$D_Score, myDataOGPass[myDataOGPass$raceethn == "White", ]$learnCond, cohensD)
+
+cohensD(myDataOGPass[myDataOGPass$raceethn == "White", ]$D_Score ~ myDataOGPass[myDataOGPass$raceethn == "White", ]$learnCond)
+
+### Contingency Data
+
+myDataControl <- myDatacont[myDatacont$learnCond == "Control", ] %>% 
+  mutate(pass456 = "control")
+
+myDataExpNoAnswer <- myDatacont[myDatacont$learnCond == "Experimental" & is.na(myDatacont$exp_check6), ] %>% 
+  mutate(pass456 = "noAnswer")
+
+myDataExpPass <- myDatacont[myDatacont$learnCond == "Experimental" &
+                          (!is.na(myDatacont$exp_check6)) &
+                          ((myDatacont$exp_check4 == "1" | myDatacont$exp_check5 == "2") & myDatacont$exp_check6 == "2"), ] %>% 
+  mutate(pass456 = "pass")
+
+myDataExpFail <- myDatacont[myDatacont$learnCond == "Experimental" &
+                          (!is.na(myDatacont$exp_check6) &
+                             !((myDatacont$exp_check4 == "1" | myDatacont$exp_check5 == "2") & myDatacont$exp_check6 == "2")), ] %>% 
+  mutate(pass456 = "fail")
+
+myDatacont <- rbind(myDataExpFail, myDataExpPass, myDataExpNoAnswer, myDataControl)
+
+#View(myDatacont[myDatacont$pass456 == "pass", ])
+
+table(myDatacont$pass456, useNA = "always")
+table(myDatacont[myDatacont$raceethnic == "White", ]$pass456, useNA = "always")
+
+###
+
+myDataContPass <- myDatacont[myDatacont$pass456 == "pass" | myDatacont$pass456 == "control", ]
+table(myDataContPass$learnCond, useNA = "always")
+
+lmCond <- lm(D_Score ~ learnCond, data = myDataContPass)
+summary(lmCond)
+
+1/lmBF(D_Score ~ learnCond, data = myDataContPass)
+
+lmCond2 <- lm(D_Score ~ learnCond, data = myDataContPass[myDataContPass$raceethn == "White", ])
+summary(lmCond2)
+
+1/lmBF(D_Score ~ learnCond, data = myDataContPass[!is.na(myDataContPass$raceethn) & myDataContPass$raceethn == "White", ])
+
+lmCond3 <- lm(D_Score ~ learnCond, data = myDataContPass[myDataContPass$citizenship == "us", ])
+summary(lmCond3)
+
+1/lmBF(D_Score ~ learnCond, data = myDataContPass[!is.na(myDataContPass$raceethn) & myDataContPass$raceethn == "White", ])
+
+pdf("IAT condition effect.pdf", width = 10)
+beanplot(myDataContPass$D_Score[myDataContPass$learnCond == "Control"],
+         myDataContPass$D_Score[myDataContPass$learnCond == "Experimental"],
+         what = c(1, 1, 1, 1),
+         col = rainbow(4, alpha = 0.20)[1],
+         main = "Distribution of IAT D scores",
+         axes = FALSE, bw = 0.2, xlab = "",
+         ylim = c(-2, 2))
+axis(1, at = 1:2, levels(myDataContPass$learnCond))
+axis(2)
+mtext("Race implicit attitude")
+dev.off()
+
+tapply(myDataContPass$D_Score, myDataContPass$learnCond, mean)
+tapply(myDataContPass$D_Score, myDataContPass$learnCond, cohensD)
+
+cohensD(myDataContPass$D_Score ~ myDataContPass$learnCond)
+
+tapply(myDataContPass[myDataContPass$raceethn == "White", ]$D_Score, myDataContPass[myDataContPass$raceethn == "White", ]$learnCond, mean)
+tapply(myDataContPass[myDataContPass$raceethn == "White", ]$D_Score, myDataContPass[myDataContPass$raceethn == "White", ]$learnCond, cohensD)
+
+cohensD(myDataContPass[myDataContPass$raceethn == "White", ]$D_Score ~ myDataContPass[myDataContPass$raceethn == "White", ]$learnCond)
 
 # Explicit attitudes ------------------------------------------------------
 
@@ -484,92 +663,92 @@ table(prop.table(table(learn2$session_id, learn2$trial_error), margin = 1)[, 1])
 
 # # Sample size simulation --------------------------------------------------
 
-sampSizeVec <- seq(100, 1000, by = 100)
-
-bfList <- vector(mode = "list", length = length(sampSizeVec))
-
-set.seed(125)
-for (i in 1:length(bfList)) {
-  for (j in 1:1000) {
-    bfList[[i]][j] <- extractBF(lmBF(D_Score ~ learnCond, myData[sample(1:nrow(myData), sampSizeVec[i], replace = TRUE), ]))$bf
-    print(paste(i, j))
-  }
-}
-
-round(bfList[[10]], 2)
-
-plot(1:10, unlist(lapply(bfList, median)))
-
-sampSizeVec2 <- seq(100, 5000, by = 500)
-
-pValList <- vector(mode = "list", length = length(sampSizeVec))
-
-set.seed(125)
-for (i in 1:length(pValList)) {
-  for (j in 1:1000) {
-    pValList[[i]][j] <- t.test(D_Score ~ learnCond, myData[sample(1:nrow(myData), sampSizeVec[i], replace = TRUE), ])$p.val
-    print(paste(i, j))
-  }
-}
-
-
-plot(1:10, unlist(lapply(pValList, function(x) sum(x < .05)))/1000)
-
-sampSizeVec2 <- seq(100, 5000, by = 500)
-
-pValList2 <- vector(mode = "list", length = length(sampSizeVec2))
-
-set.seed(125)
-for (i in 1:length(pValList2)) {
-  for (j in 1:1000) {
-    pValList2[[i]][j] <- t.test(D_Score ~ learnCond, myData[sample(1:nrow(myData), sampSizeVec2[i], replace = TRUE), ])$p.val
-    print(paste(i, j))
-  }
-}
-
-pdf("Power by sample size.pdf", width = 10)
-plot(1:10, unlist(lapply(pValList, function(x) sum(x < .05)))/1000, axes = FALSE, main = "Power by sample size",
-     xlab = "Sample size", ylab = "Power", ylim = c(0, 1), pch = 21, bg = "red")
-axis(1, at = 1:10, labels = sampSizeVec)
-axis(2)
-abline(h = 0.8, lty = 3)
-dev.off()
-
-pdf("Power by sample size 2.pdf", width = 10)
-plot(1:10, unlist(lapply(pValList2, function(x) sum(x < .05)))/1000, axes = FALSE, main = "Power by sample size",
-     xlab = "Sample size", ylab = "Power", ylim = c(0, 1), pch = 21, bg = "red")
-axis(1, at = 1:10, labels = sampSizeVec2)
-axis(2)
-abline(h = 0.8, lty = 3)
-dev.off()
-
-bfList2 <- vector(mode = "list", length = length(sampSizeVec2))
-
-set.seed(125)
-for (i in 1:length(bfList2)) {
-  for (j in 1:1000) {
-    bfList2[[i]][j] <- extractBF(lmBF(D_Score ~ learnCond, myData[sample(1:nrow(myData), sampSizeVec2[i], replace = TRUE), ]))$bf
-    print(paste(i, j))
-  }
-}
-
-plot(1:10, 1/unlist(lapply(bfList2, median)))
-
-pdf("Bayes Factor by sample size.pdf", width = 10)
-plot(1:10, unlist(lapply(bfList, median)), axes = FALSE, main = "Bayes Factor by sample size",
-     xlab = "Sample size", ylab = "Median BF", pch = 21, bg = "red")
-abline(h = 10, lty = 3)
-axis(1, at = 1:10, labels = sampSizeVec)
-axis(2)
-dev.off()
-
-pdf("Bayes Factor by sample size 2.pdf", width = 10)
-plot(1:10, unlist(lapply(bfList2, median)), axes = FALSE, main = "Bayes Factor by sample size",
-     xlab = "Sample size", ylab = "Median BF", pch = 21, bg = "red")
-abline(h = 10, lty = 3)
-axis(1, at = 1:10, labels = sampSizeVec2)
-axis(2)
-dev.off()
+# sampSizeVec <- seq(100, 1000, by = 100)
+# 
+# bfList <- vector(mode = "list", length = length(sampSizeVec))
+# 
+# set.seed(125)
+# for (i in 1:length(bfList)) {
+#      for (j in 1:1000) {
+#           bfList[[i]][j] <- extractBF(lmBF(D_Score ~ learnCond, myData[sample(1:nrow(myData), sampSizeVec[i], replace = TRUE), ]))$bf
+#           print(paste(i, j))
+#      }
+# }
+# 
+# round(bfList[[10]], 2)
+# 
+# plot(1:10, unlist(lapply(bfList, median)))
+# 
+# sampSizeVec2 <- seq(100, 5000, by = 500)
+# 
+# pValList <- vector(mode = "list", length = length(sampSizeVec))
+# 
+# set.seed(125)
+# for (i in 1:length(pValList)) {
+#      for (j in 1:1000) {
+#           pValList[[i]][j] <- t.test(D_Score ~ learnCond, myData[sample(1:nrow(myData), sampSizeVec[i], replace = TRUE), ])$p.val
+#           print(paste(i, j))
+#      }
+# }
+# 
+# 
+# plot(1:10, unlist(lapply(pValList, function(x) sum(x < .05)))/1000)
+# 
+# sampSizeVec2 <- seq(100, 5000, by = 500)
+# 
+# pValList2 <- vector(mode = "list", length = length(sampSizeVec2))
+# 
+# set.seed(125)
+# for (i in 1:length(pValList2)) {
+#      for (j in 1:1000) {
+#           pValList2[[i]][j] <- t.test(D_Score ~ learnCond, myData[sample(1:nrow(myData), sampSizeVec2[i], replace = TRUE), ])$p.val
+#           print(paste(i, j))
+#      }
+# }
+# 
+# pdf("Power by sample size.pdf", width = 10)
+# plot(1:10, unlist(lapply(pValList, function(x) sum(x < .05)))/1000, axes = FALSE, main = "Power by sample size",
+#      xlab = "Sample size", ylab = "Power", ylim = c(0, 1), pch = 21, bg = "red")
+# axis(1, at = 1:10, labels = sampSizeVec)
+# axis(2)
+# abline(h = 0.8, lty = 3)
+# dev.off()
+# 
+# pdf("Power by sample size 2.pdf", width = 10)
+# plot(1:10, unlist(lapply(pValList2, function(x) sum(x < .05)))/1000, axes = FALSE, main = "Power by sample size",
+#      xlab = "Sample size", ylab = "Power", ylim = c(0, 1), pch = 21, bg = "red")
+# axis(1, at = 1:10, labels = sampSizeVec2)
+# axis(2)
+# abline(h = 0.8, lty = 3)
+# dev.off()
+# 
+# bfList2 <- vector(mode = "list", length = length(sampSizeVec2))
+# 
+# set.seed(125)
+# for (i in 1:length(bfList2)) {
+#      for (j in 1:1000) {
+#           bfList2[[i]][j] <- extractBF(lmBF(D_Score ~ learnCond, myData[sample(1:nrow(myData), sampSizeVec2[i], replace = TRUE), ]))$bf
+#           print(paste(i, j))
+#      }
+# }
+# 
+# plot(1:10, 1/unlist(lapply(bfList2, median)))
+# 
+# pdf("Bayes Factor by sample size.pdf", width = 10)
+# plot(1:10, unlist(lapply(bfList, median)), axes = FALSE, main = "Bayes Factor by sample size",
+#      xlab = "Sample size", ylab = "Median BF", pch = 21, bg = "red")
+# abline(h = 10, lty = 3)
+# axis(1, at = 1:10, labels = sampSizeVec)
+# axis(2)
+# dev.off()
+# 
+# pdf("Bayes Factor by sample size 2.pdf", width = 10)
+# plot(1:10, unlist(lapply(bfList2, median)), axes = FALSE, main = "Bayes Factor by sample size",
+#      xlab = "Sample size", ylab = "Median BF", pch = 21, bg = "red")
+# abline(h = 10, lty = 3)
+# axis(1, at = 1:10, labels = sampSizeVec2)
+# axis(2)
+# dev.off()
 
 # 700/(nrow(myData)/nrow(myDataAll))
 # 700/(nrow(myData[myData$raceethnic == "White", ])/nrow(myDataAll))
@@ -591,7 +770,7 @@ mcmc_intervals(posteriorBayesFit)
 mcmc_hist(posteriorBayesFit)
 
 # Extract and summarize the posterior draws
-postSlopeBayesFit <- as.matrix(bayesFit, pars = "learnCondExperimental")
+postSlopeBayesFit <- as.matrix(bayesFit, pars = "learnCondOriginal instructions")
 
 # Compute mean, sd, and quantiles (2.5% and 97.5%) for intercept parameter
 mean(postSlopeBayesFit)
@@ -627,6 +806,45 @@ text(0.5, 4, paste0(format(round(table(postSlopeBayesFit$null)/sum(table(postSlo
      col = rainbow(2)[1])
 text(-0.5, 4, paste0(format(round(table(postSlopeBayesFit$null)/sum(table(postSlopeBayesFit$null))*100, 2), nsmall = 2), "%")[1],
      col = rainbow(2)[2])
+
+# Extract and summarize the posterior draws
+postSlopeBayesFit2 <- as.matrix(bayesFit, pars = "learnCondContingency instructions")
+
+# Compute mean, sd, and quantiles (2.5% and 97.5%) for intercept parameter
+mean(postSlopeBayesFit2)
+sd(postSlopeBayesFit2)
+quantile(postSlopeBayesFit2, c(0.025, 0.975))
+
+# Compute the proportion of posterior samples that fall into the range consistent with H0 (i.e., below 0.10)
+
+postSlopeBayesFit2 <- as.data.frame(postSlopeBayesFit2)
+colnames(postSlopeBayesFit2) <- "mean"
+postSlopeBayesFit2$null <- ifelse(postSlopeBayesFit2$mean > -0.1, "Null", "Alt")
+table(postSlopeBayesFit2$null)/sum(table(postSlopeBayesFit2$null)) # Percentage of samples falling within the null range
+
+
+plot(density(postSlopeBayesFit2$mean), main = "Bayesian Equivalence Testing",
+     axes = FALSE, xlab = expression(beta),
+     col = "transparent", xlim = c(-0.8, 0.8), ylim = c(0, 7))
+axis(1)
+axis(2, at = seq(0, 7, 1), las = 1)
+polygon(x = c(density(postSlopeBayesFit2$mean)$x[density(postSlopeBayesFit2$mean)$x > -0.1],
+              max(density(postSlopeBayesFit2$mean)$x[density(postSlopeBayesFit2$mean)$x > -0.1]), 
+              min(density(postSlopeBayesFit2$mean)$x[density(postSlopeBayesFit2$mean)$x > -0.1])),
+        y = c(density(postSlopeBayesFit2$mean)$y[density(postSlopeBayesFit2$mean)$x > -0.1], 0, 0),
+        col = rainbow(2, alpha = 0.4)[1], border = "transparent")
+polygon(x = c(density(postSlopeBayesFit2$mean)$x[density(postSlopeBayesFit2$mean)$x < -0.1],
+              max(density(postSlopeBayesFit2$mean)$x[density(postSlopeBayesFit2$mean)$x < -0.1]), 
+              min(density(postSlopeBayesFit2$mean)$x[density(postSlopeBayesFit2$mean)$x < -0.1])),
+        y = c(density(postSlopeBayesFit2$mean)$y[density(postSlopeBayesFit2$mean)$x < -0.1], 0, 0),
+        col = rainbow(2, alpha = 0.4)[2], border = "transparent") 
+abline(v = -0.1)
+abline(v = mean(postSlopeBayesFit2$mean), lty = 2)
+text(0.5, 4, paste0(format(round(table(postSlopeBayesFit2$null)/sum(table(postSlopeBayesFit2$null))*100, 2), nsmall = 2), "%")[2],
+     col = rainbow(2)[1])
+text(-0.5, 4, paste0(format(round(table(postSlopeBayesFit2$null)/sum(table(postSlopeBayesFit2$null))*100, 2), nsmall = 2), "%")[1],
+     col = rainbow(2)[2])
+
 
 # # Retrieve conditon -------------------------------------------------------
 # 
@@ -787,130 +1005,47 @@ text(-0.5, 4, paste0(format(round(table(postSlopeBayesFit$null)/sum(table(postSl
 
 
 # New contingency memory items --------------------------------------------
-
-table(myData$exp_check1)
-
-# write.csv(myData[, grepl("exp_check", colnames(myData))], "contingency.csv", row.names = FALSE)
+# table(myData$exp_check6)
+# tapply(myData$D_Score, myData$exp_check6, mean, na.rm = TRUE)
 # 
-# contingency <- read.csv("contingency_coded.csv")
-
-myData <- cbind(myData, contingency[, c("aware1", "aware2")])
-head(myData)
-
-table(myData$aware1)
-table(myData$aware2)
-
-tapply(myData$D_Score, myData$aware1, mean, na.rm = TRUE)
-tapply(myData$D_Score, myData$aware2, mean, na.rm = TRUE)
-
-t.test(myData$D_Score ~ myData$aware1)
-
-table(myData$exp_check3)
-
-tapply(myData$D_Score, myData$exp_check3, mean, na.rm = TRUE)
-
-t.test(myData$D_Score ~ myData$exp_check3)
-
-table(myData$exp_check4)
-tapply(myData$D_Score, myData$exp_check4, mean, na.rm = TRUE)
-
-table(myData$exp_check5)
-tapply(myData$D_Score, myData$exp_check5, mean, na.rm = TRUE)
-
-table(myData$exp_check6)
-tapply(myData$D_Score, myData$exp_check6, mean, na.rm = TRUE)
-
-tapply(myData$D_Score, myData$learnCond, mean, na.rm = TRUE)
-tapply(myData$D_Score, myData$exp_check6, length)
-
-summary(aov(myData$D_Score ~ myData$exp_check6))
-
-cohensD(myData[myData$learnCond == "Control", ]$D_Score,
-        myData[myData$learnCond == "Experimental" & myData$exp_check6 == "2", ]$D_Score)
-
-## Contingency instructions
-#Alex code
-
-myDataControl <- myData[myData$learnCond == "Control", ] %>% 
-  mutate(pass456 = "control")
-
-myDataExpNoAnswer <- myData[myData$learnCond == "Experimental" & is.na(myData$exp_check6), ] %>% 
-  mutate(pass456 = "noAnswer")
-
-myDataExpPass <- myData[myData$learnCond == "Experimental" &
-                          (!is.na(myData$exp_check6)) &
-                          ((myData$exp_check4 == "1" | myData$exp_check5 == "2") & myData$exp_check6 == "2"), ] %>% 
-  mutate(pass456 = "pass")
-
-myDataExpFail <- myData[myData$learnCond == "Experimental" &
-                          (!is.na(myData$exp_check6) &
-                             !((myData$exp_check4 == "1" | myData$exp_check5 == "2") & myData$exp_check6 == "2")), ] %>% 
-  mutate(pass456 = "fail")
-
-myData <- rbind(myDataExpFail, myDataExpPass, myDataExpNoAnswer, myDataControl)
-
-#View(myData[myData$pass456 == "pass", ])
-
-table(myData$pass456, useNA = "always")
-
-###
-
-myDataPass <- myData[myData$pass456 == "pass" | myData$pass456 == "control", ]
-table(myDataPass$learnCond, useNA = "always")
-
-lmCond <- lm(D_Score ~ learnCond, data = myDataPass)
-summary(lmCond)
-
-1/lmBF(D_Score ~ learnCond, data = myDataPass)
-
-lmCond2 <- lm(D_Score ~ learnCond, data = myDataPass[myDataPass$raceethn == "White", ])
-summary(lmCond2)
-
-1/lmBF(D_Score ~ learnCond, data = myDataPass[!is.na(myDataPass$raceethn) & myDataPass$raceethn == "White", ])
-
-lmCond3 <- lm(D_Score ~ learnCond, data = myDataPass[myDataPass$citizenship == "us", ])
-summary(lmCond3)
-
-1/lmBF(D_Score ~ learnCond, data = myDataPass[!is.na(myDataPass$raceethn) & myDataPass$raceethn == "White", ])
-
-pdf("IAT condition effect.pdf", width = 10)
-beanplot(myDataPass$D_Score[myDataPass$learnCond == "Control"],
-         myDataPass$D_Score[myDataPass$learnCond == "Experimental"],
-         what = c(1, 1, 1, 1),
-         col = rainbow(4, alpha = 0.20)[1],
-         main = "Distribution of IAT D scores",
-         axes = FALSE, bw = 0.2, xlab = "",
-         ylim = c(-2, 2))
-axis(1, at = 1:2, levels(myDataPass$learnCond))
-axis(2)
-mtext("Race implicit attitude")
-dev.off()
-
-tapply(myDataPass$D_Score, myDataPass$learnCond, mean)
-tapply(myDataPass$D_Score, myDataPass$learnCond, cohensD)
-
-cohensD(myDataPass$D_Score ~ myDataPass$learnCond)
-
-tapply(myDataPass[myDataPass$raceethn == "White", ]$D_Score, myDataPass[myDataPass$raceethn == "White", ]$learnCond, mean)
-tapply(myDataPass[myDataPass$raceethn == "White", ]$D_Score, myDataPass[myDataPass$raceethn == "White", ]$learnCond, cohensD)
-
-cohensD(myDataPass[myDataPass$raceethn == "White", ]$D_Score ~ myDataPass[myDataPass$raceethn == "White", ]$learnCond)
-# Meta-analysis -----------------------------------------------------------
-
-t.test(myData$D_Score ~ myData$learnCond, var.equal = TRUE)
-table(myData$learnCond)
-
-tVec <- c(0.75009, 0.29966, 2.3377, 0.7517, 1.3696)
-n1Vec <- c(148, 500, 159, 345, 215)
-n2Vec <- c(167, 579, 167, 341, 203)
-
-sum(n1Vec) + sum(n2Vec)
-
-1/meta.ttestBF(tVec, n1Vec, n2Vec)
-postBF <- meta.ttestBF(tVec, n1Vec, n2Vec, posterior = TRUE, iterations = 1000)
-
-pdf("Posterior.pdf", width = 10)
-hist(postBF, col = "white")
-abline(v = quantile(postBF, c(0.025, 0.975)), col = "red")
-abline(v = mean(postBF), col = "blue")
-dev.off()
+# tapply(myData$D_Score, myData$learnCond, mean, na.rm = TRUE)
+# tapply(myData$D_Score, myData$exp_check6, length)
+# 
+# summary(aov(myData$D_Score ~ myData$exp_check6))
+# 
+# tapply(myData$D_Score, list(myData$learnCond, myData$exp_check6), mean)
+# 
+# table(myData$learnCond, myData$exp_check6)
+# 
+# # Attention check ---------------------------------------------------------
+# 
+# table(myData$att_check)
+# table(myData$learnCond, myData$att_check)
+# 
+# tapply(myData[myData$learnCond == "Experimental", ]$D_Score,
+#        myData[myData$learnCond == "Experimental", ]$att_check, mean)
+# 
+# tapply(myData[myData$learnCond == "Experimental", ]$D_Score,
+#        myData[myData$learnCond == "Experimental", ]$att_check == 1, mean)
+# 
+# t.test(myData[myData$learnCond == "Experimental", ]$D_Score ~ myData[myData$learnCond == "Experimental", ]$att_check == 1)
+# 
+# # Meta-analysis -----------------------------------------------------------
+# 
+# t.test(myData$D_Score ~ myData$learnCond, var.equal = TRUE)
+# table(myData$learnCond)
+# 
+# tVec <- c(0.75009, 0.29966, 2.3377, 0.7517, 1.3696)
+# n1Vec <- c(148, 500, 159, 345, 215)
+# n2Vec <- c(167, 579, 167, 341, 203)
+# 
+# sum(n1Vec) + sum(n2Vec)
+# 
+# 1/meta.ttestBF(tVec, n1Vec, n2Vec)
+# postBF <- meta.ttestBF(tVec, n1Vec, n2Vec, posterior = TRUE, iterations = 1000)
+# 
+# pdf("Posterior.pdf", width = 10)
+# hist(postBF, col = "white")
+# abline(v = quantile(postBF, c(0.025, 0.975)), col = "red")
+# abline(v = mean(postBF), col = "blue")
+# dev.off()
