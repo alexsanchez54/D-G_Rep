@@ -831,7 +831,7 @@ cohensD(myData[myData$learnCond == "Control", ]$D_Score,
 #Alex code
 
 myDataControl <- myData[myData$learnCond == "Control", ] %>% 
-  mutate(pass456 = "Control")
+  mutate(pass456 = "control")
 
 myDataExpNoAnswer <- myData[myData$learnCond == "Experimental" & is.na(myData$exp_check6), ] %>% 
   mutate(pass456 = "noAnswer")
@@ -846,41 +846,54 @@ myDataExpFail <- myData[myData$learnCond == "Experimental" &
                              !((myData$exp_check4 == "1" | myData$exp_check5 == "2") & myData$exp_check6 == "2")), ] %>% 
   mutate(pass456 = "fail")
 
-table(myDataExpFail$learnCond, useNA = "always")
-table(myDataExpPass$learnCond, useNA = "always")
-table(myDataExpNoAnswer$learnCond, useNA = "always")
-table(myDataControl$learnCond, useNA = "always")
-
-table(myDataExpFail$pass456, useNA = "always")
-table(myDataExpPass$pass456, useNA = "always")
-table(myDataExpNoAnswer$pass456, useNA = "always")
-table(myDataControl$pass456, useNA = "always")
-
 myData <- rbind(myDataExpFail, myDataExpPass, myDataExpNoAnswer, myDataControl)
 
-###
+#View(myData[myData$pass456 == "pass", ])
 
 table(myData$pass456, useNA = "always")
 
-table(myData[myData$pass456 == "pass", ]$learnCond, useNA = "always")
-table(myData[myData$pass456 == "fail", ]$learnCond, useNA = "always")
+###
 
+myDataPass <- myData[myData$pass456 == "pass" | myData$pass456 == "control", ]
+table(myDataPass$learnCond, useNA = "always")
 
+lmCond <- lm(D_Score ~ learnCond, data = myDataPass)
+summary(lmCond)
 
+1/lmBF(D_Score ~ learnCond, data = myDataPass)
 
-# Attention check ---------------------------------------------------------
+lmCond2 <- lm(D_Score ~ learnCond, data = myDataPass[myDataPass$raceethn == "White", ])
+summary(lmCond2)
 
-table(myData$att_check)
-table(myData$learnCond, myData$att_check)
+1/lmBF(D_Score ~ learnCond, data = myDataPass[!is.na(myDataPass$raceethn) & myDataPass$raceethn == "White", ])
 
-tapply(myData[myData$<- == "Experimental", ]$D_Score,
-       myData[myData$learnCond == "Experimental", ]$att_check, mean)
+lmCond3 <- lm(D_Score ~ learnCond, data = myDataPass[myDataPass$citizenship == "us", ])
+summary(lmCond3)
 
-tapply(myData[myData$learnCond == "Experimental", ]$D_Score,
-       myData[myData$learnCond == "Experimental", ]$att_check == 1, mean)
+1/lmBF(D_Score ~ learnCond, data = myDataPass[!is.na(myDataPass$raceethn) & myDataPass$raceethn == "White", ])
 
-t.test(myData[myData$learnCond == "Experimental", ]$D_Score ~ myData[myData$learnCond == "Experimental", ]$att_check == 1)
+pdf("IAT condition effect.pdf", width = 10)
+beanplot(myDataPass$D_Score[myDataPass$learnCond == "Control"],
+         myDataPass$D_Score[myDataPass$learnCond == "Experimental"],
+         what = c(1, 1, 1, 1),
+         col = rainbow(4, alpha = 0.20)[1],
+         main = "Distribution of IAT D scores",
+         axes = FALSE, bw = 0.2, xlab = "",
+         ylim = c(-2, 2))
+axis(1, at = 1:2, levels(myDataPass$learnCond))
+axis(2)
+mtext("Race implicit attitude")
+dev.off()
 
+tapply(myDataPass$D_Score, myDataPass$learnCond, mean)
+tapply(myDataPass$D_Score, myDataPass$learnCond, cohensD)
+
+cohensD(myDataPass$D_Score ~ myDataPass$learnCond)
+
+tapply(myDataPass[myDataPass$raceethn == "White", ]$D_Score, myDataPass[myDataPass$raceethn == "White", ]$learnCond, mean)
+tapply(myDataPass[myDataPass$raceethn == "White", ]$D_Score, myDataPass[myDataPass$raceethn == "White", ]$learnCond, cohensD)
+
+cohensD(myDataPass[myDataPass$raceethn == "White", ]$D_Score ~ myDataPass[myDataPass$raceethn == "White", ]$learnCond)
 # Meta-analysis -----------------------------------------------------------
 
 t.test(myData$D_Score ~ myData$learnCond, var.equal = TRUE)
