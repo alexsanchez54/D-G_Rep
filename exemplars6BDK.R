@@ -400,6 +400,11 @@ tapply(myData$D_Score, myData$learnCond, cohensD)
 
 cohensD(myData$D_Score ~ myData$learnCond)
 
+tapply(myData[myData$raceethn == "White", ]$D_Score, myData[myData$raceethn == "White", ]$learnCond, mean)
+tapply(myData[myData$raceethn == "White", ]$D_Score, myData[myData$raceethn == "White", ]$learnCond, cohensD)
+
+cohensD(myData[myData$raceethn == "White", ]$D_Score ~ myData[myData$raceethn == "White", ]$learnCond)
+
 # Explicit attitudes ------------------------------------------------------
 
 head(myData)

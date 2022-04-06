@@ -388,7 +388,7 @@ summary(lmCond3)
 pdf("IAT condition effect.pdf", width = 10)
 beanplot(myData$D_Score[myData$learnCond == "Control"],
          myData$D_Score[myData$learnCond == "Experimental"],
-         what = c(1, 1, 1, 1),
+         what = c(1, 1, 1, 0),
          col = rainbow(4, alpha = 0.20)[1],
          main = "Distribution of IAT D scores",
          axes = FALSE, bw = 0.2, xlab = "",
@@ -830,7 +830,7 @@ cohensD(myData[myData$learnCond == "Control", ]$D_Score,
 
 summary(aov(myData$D_Score ~ myData$learnCond + myData$raceethnic + myData$learnCond*myData$raceethnic))
 
-## Contingency instructions
+## exp check
 #Alex code
 
 myDataControl <- myData[myData$learnCond == "Control", ] %>% 
@@ -854,6 +854,12 @@ myData <- rbind(myDataExpFail, myDataExpPass, myDataExpNoAnswer, myDataControl)
 #View(myData[myData$pass456 == "pass", ])
 
 table(myData$pass456, useNA = "always")
+
+cohensD(myData[myData$pass456 == "control" | myData$pass456 == "fail", ]$D_Score ~ myData[myData$pass456 == "control" | myData$pass456 == "fail", ]$learnCond)
+
+cohensD(myData[myData$pass456 == "control" | myData$pass456 == "pass", ]$D_Score ~ myData[myData$pass456 == "control" | myData$pass456 == "pass", ]$learnCond)
+
+cohensD(myData$D_Score ~ myData$learnCond)
 
 ###
 

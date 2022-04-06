@@ -6,7 +6,7 @@ if (!require(pastecs)) {install.packages("pastecs"); require(pastecs)}
 if (!require(corrplot)) {install.packages("corrplot"); require(corrplot)}
 if (!require(bayesplot)) {install.packages("bayesplot"); require(bayesplot)}
 if (!require(rstanarm)) {install.packages("rstanarm"); require(rstanarm)}
-
+if (!require(tidyverse)) {install.packages("tidyverse"); require(tidyverse)}
 
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
@@ -291,8 +291,8 @@ table(myData$block3Cond, useNA = "always")
 
 head(myData)
 
-myData$order <- car::recode(myData$block3Cond, "'Black Americans/Pleasant Words,White Americans/Unpleasant Words' = 'Incongruent first';
-                    'White Americans/Unpleasant Words,Black Americans/Pleasant Words' = 'Incongruent first'; else = 'Congruent first'")
+myData$order <- car::recode(myData$block3Cond, "'Black Names/Pleasant Words,White Names/Unpleasant Words' = 'Incongruent first';
+                    'White Names/Unpleasant Words,Black Names/Pleasant Words' = 'Incongruent first'; else = 'Congruent first'")
 table(myData$order)
 
 myData$d <- as.numeric(paste(myData$d))
@@ -387,7 +387,7 @@ summary(lmCond3)
 pdf("IAT condition effect.pdf", width = 10)
 beanplot(myData$D_Score[myData$learnCond == "Control"],
          myData$D_Score[myData$learnCond == "Experimental"],
-         what = c(1, 1, 1, 1),
+         what = c(1, 1, 1, 0),
          col = rainbow(4, alpha = 0.20)[1],
          main = "Distribution of IAT D scores",
          axes = FALSE, bw = 0.2, xlab = "",
@@ -406,6 +406,74 @@ tapply(myData[myData$raceethn == "White", ]$D_Score, myData[myData$raceethn == "
 tapply(myData[myData$raceethn == "White", ]$D_Scaore, myData[myData$raceethn == "White", ]$learnCond, cohensD)
 
 cohensD(myData[myData$raceethn == "White", ]$D_Score ~ myData[myData$raceethn == "White", ]$learnCond)
+
+## exp check
+#Alex code
+
+myDataControl <- myData[myData$learnCond == "Control", ] %>% 
+  mutate(pass456 = "control")
+
+myDataExpNoAnswer <- myData[myData$learnCond == "Experimental" & is.na(myData$exp_check6), ] %>% 
+  mutate(pass456 = "noAnswer")
+
+myDataExpPass <- myData[myData$learnCond == "Experimental" &
+                          (!is.na(myData$exp_check6)) &
+                          ((myData$exp_check4 == "1" | myData$exp_check5 == "2") & myData$exp_check6 == "2"), ] %>% 
+  mutate(pass456 = "pass")
+
+myDataExpFail <- myData[myData$learnCond == "Experimental" &
+                          (!is.na(myData$exp_check6) &
+                             !((myData$exp_check4 == "1" | myData$exp_check5 == "2") & myData$exp_check6 == "2")), ] %>% 
+  mutate(pass456 = "fail")
+
+myData <- rbind(myDataExpFail, myDataExpPass, myDataExpNoAnswer, myDataControl)
+
+#View(myData[myData$pass456 == "pass", ])
+
+table(myData$pass456, useNA = "always")
+
+###
+
+myDataPass <- myData[myData$pass456 == "pass" | myData$pass456 == "control", ]
+table(myDataPass$learnCond, useNA = "always")
+
+lmCond <- lm(D_Score ~ learnCond, data = myDataPass)
+summary(lmCond)
+
+1/lmBF(D_Score ~ learnCond, data = myDataPass)
+
+lmCond2 <- lm(D_Score ~ learnCond, data = myDataPass[myDataPass$raceethn == "White", ])
+summary(lmCond2)
+
+1/lmBF(D_Score ~ learnCond, data = myDataPass[!is.na(myDataPass$raceethn) & myDataPass$raceethn == "White", ])
+
+lmCond3 <- lm(D_Score ~ learnCond, data = myDataPass[myDataPass$citizenship == "us", ])
+summary(lmCond3)
+
+1/lmBF(D_Score ~ learnCond, data = myDataPass[!is.na(myDataPass$raceethn) & myDataPass$raceethn == "White", ])
+
+pdf("IAT condition effect.pdf", width = 10)
+beanplot(myDataPass$D_Score[myDataPass$learnCond == "Control"],
+         myDataPass$D_Score[myDataPass$learnCond == "Experimental"],
+         what = c(1, 1, 1, 0),
+         col = rainbow(4, alpha = 0.20)[1],
+         main = "Distribution of IAT D scores",
+         axes = FALSE, bw = 0.2, xlab = "",
+         ylim = c(-2, 2))
+axis(1, at = 1:2, levels(myDataPass$learnCond))
+axis(2)
+mtext("Race implicit attitude")
+dev.off()
+
+tapply(myDataPass$D_Score, myDataPass$learnCond, mean)
+tapply(myDataPass$D_Score, myDataPass$learnCond, cohensD)
+
+cohensD(myDataPass$D_Score ~ myDataPass$learnCond)
+
+tapply(myDataPass[myDataPass$raceethn == "White", ]$D_Score, myDataPass[myDataPass$raceethn == "White", ]$learnCond, mean)
+tapply(myDataPass[myDataPass$raceethn == "White", ]$D_Score, myDataPass[myDataPass$raceethn == "White", ]$learnCond, cohensD)
+
+cohensD(myDataPass[myDataPass$raceethn == "White", ]$D_Score ~ myDataPass[myDataPass$raceethn == "White", ]$learnCond)
 
 # Explicit attitudes ------------------------------------------------------
 

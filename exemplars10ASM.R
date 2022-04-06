@@ -381,7 +381,7 @@ t.test(myData[myData$order == "Incongruent first", ]$D_Score)
 ttestBF(myData[myData$order == "Incongruent first", ]$D_Score)
 cohensD(as.numeric(myData[myData$order == "Incongruent first", ]$D_Score))
 
-lmCond <- lm(D_Score ~ learnCond, data = myDatacont)
+lmCond <- lm(D_Score ~ learnCond, data = myDataOG)
 summary(lmCond)
 
 lmBF(D_Score ~ learnCond, data = myData)
@@ -403,15 +403,37 @@ pdf("IAT condition effect.pdf", width = 10)
 beanplot(myData$D_Score[myData$learnCond == "Control"],
          myData$D_Score[myData$learnCond == "Original instructions"],
          myData$D_Score[myData$learnCond == "Contingency instructions"],
-         what = c(1, 1, 1, 1),
+         what = c(1, 1, 1, 0),
          col = rainbow(4, alpha = 0.20)[1],
          main = "Distribution of IAT D scores",
          axes = FALSE, bw = 0.2, xlab = "",
          ylim = c(-2, 2))
-axis(1, at = 1:3, levels(myData$learnCond))
+axis(1, at = 1:3, labels= c("Control", "Experimental: Knowledge test", "Experimental: Contingency inst."))
 axis(2)
 mtext("Race implicit attitude")
 dev.off()
+
+beanplot(myDataOG$D_Score[myDataOG$learnCond == "Control"],
+         myDataOG$D_Score[myDataOG$learnCond == "Original instructions"],
+         what = c(1, 1, 1, 0),
+         col = rainbow(4, alpha = 0.20)[1],
+         main = "Distribution of IAT D scores",
+         axes = FALSE, bw = 0.2, xlab = "",
+         ylim = c(-2, 2))
+axis(1, at = 1:2, labels= c("Control", "Experimental: Knowledge test"))
+axis(2)
+mtext("Race implicit attitude")
+
+beanplot(myDatacont$D_Score[myDatacont$learnCond == "Control"],
+         myDatacont$D_Score[myDatacont$learnCond == "Contingency instructions"],
+         what = c(1, 1, 1, 0),
+         col = rainbow(4, alpha = 0.20)[1],
+         main = "Distribution of IAT D scores",
+         axes = FALSE, bw = 0.2, xlab = "",
+         ylim = c(-2, 2))
+axis(1, at = 1:2, labels= c("Control", "Experimental: Contingency inst."))
+axis(2)
+mtext("Race implicit attitude")
 
 tapply(myData$D_Score, myData$learnCond, mean)
 tapply(myData$D_Score, myData$learnCond, cohensD)
